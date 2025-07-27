@@ -27,7 +27,6 @@ connectDB().catch(console.error);
 
 // Định nghĩa schema và model
 const journalSchema = new mongoose.Schema({
-  // _id: String,
   Rank: Number,
   Sourceid: String,
   Title: String,
