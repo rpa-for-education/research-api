@@ -1,29 +1,12 @@
 const mongoose = require('mongoose');
+const express = require('express');
+const compression = require('compression');
 let isConnected = false;
 
-// Định nghĩa kết nối MongoDB
-const connectDB = async () => {
-  if (isConnected || mongoose.connection.readyState >= 1) {
-    return; // tránh gọi lại nếu đã kết nối
-  }
+const app = express();
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
-      heartbeatFrequencyMS: 1000,
-      maxPoolSize: 20, // Tăng số kết nối đồng thời
-    });
-    isConnected = true;
-    console.log('Connected to MongoDB');
-  } catch (err) {
-    console.error('MongoDB connection error:', err.message);
-    process.exit(1); // Thoát nếu kết nối thất bại
-  }
-};
-connectDB().catch(console.error);
+app.use(compression());
+app.use(express.json());
 
 // Định nghĩa schema và model
 const journalSchema = new mongoose.Schema({
@@ -52,12 +35,40 @@ const journalSchema = new mongoose.Schema({
 });
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-const express = require('express');
-const compression = require('compression');
-const app = express();
+// Định nghĩa kết nối MongoDB
+const connectDB = async () => {
+  if (isConnected || mongoose.connection.readyState >= 1) {
+    return; // Tránh gọi lại nếu đã kết nối
+  }
 
-app.use(compression());
-app.use(express.json());
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+      heartbeatFrequencyMS: 1000,
+      maxPoolSize: 20,
+    });
+    isConnected = true;
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err.message);
+    throw err; // Ném lỗi để xử lý ở cấp cao hơn
+  }
+};
+
+// Middleware kiểm tra kết nối trước khi xử lý request
+app.use(async (req, res, next) => {
+  if (!isConnected) {
+    try {
+      await connectDB();
+    } catch (err) {
+      return res.status(500).json({ message: 'Database connection failed' });
+    }
+  }
+  next();
+});
 
 // GET journals
 app.get('/api/journals', async (req, res) => {
@@ -71,31 +82,31 @@ app.get('/api/journals', async (req, res) => {
 
 // POST a new journal
 app.post('/api/journals', async (req, res) => {
-  const journal = new Journal({
-    Rank: req.body.Rank,
-    Sourceid: req.body.Sourceid,
-    Title: req.body.Title,
-    Type: req.body.Type,
-    Issn: req.body.Issn,
-    SJR: req.body.SJR,
-    H_index: req.body.H_index,
-    Total_Docs: req.body.Total_Docs,
-    Total_Refs: req.body.Total_Refs,
-    Total_Citations: req.body.Total_Citations,
-    Citable_Docs: req.body.Citable_Docs,
-    Citations_per_Doc: req.body.Citations_per_Doc,
-    Ref: req.body.Ref,
-    Female: req.body.Female,
-    Overton: req.body.Overton,
-    SDG: req.body.SDG,
-    Country: req.body.Country,
-    Region: req.body.Region,
-    Publisher: req.body.Publisher,
-    Coverage: req.body.Coverage,
-    Categories: req.body.Categories,
-    Areas: req.body.Areas
-  });
   try {
+    const journal = new Journal({
+      Rank: req.body.Rank,
+      Sourceid: req.body.Sourceid,
+      Title: req.body.Title,
+      Type: req.body.Type,
+      Issn: req.body.Issn,
+      SJR: req.body.SJR,
+      H_index: req.body.H_index,
+      Total_Docs: req.body.Total_Docs,
+      Total_Refs: req.body.Total_Refs,
+      Total_Citations: req.body.Total_Citations,
+      Citable_Docs: req.body.Citable_Docs,
+      Citations_per_Doc: req.body.Citations_per_Doc,
+      Ref: req.body.Ref,
+      Female: req.body.Female,
+      Overton: req.body.Overton,
+      SDG: req.body.SDG,
+      Country: req.body.Country,
+      Region: req.body.Region,
+      Publisher: req.body.Publisher,
+      Coverage: req.body.Coverage,
+      Categories: req.body.Categories,
+      Areas: req.body.Areas
+    });
     const newJournal = await journal.save();
     res.status(201).json(newJournal);
   } catch (err) {
@@ -135,10 +146,17 @@ app.delete('/api/journals/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  });
-}).catch((err) => {
-  console.error('❌ Server start aborted due to DB error');
-});
+
+// Khởi động server sau khi kết nối
+const startServer = async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Server start aborted due to DB error:', err.message);
+  }
+};
+
+startServer();
