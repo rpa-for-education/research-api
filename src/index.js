@@ -1,13 +1,4 @@
-const express = require('express');
 const mongoose = require('mongoose');
-const compression = require('compression');
-const app = express();
-
-app.use(compression()); // Nén phản hồi
-app.use(express.json());
-
-// Bỏ qua yêu cầu favicon
-app.get('/favicon.png', (req, res) => res.status(204).end());
 
 // Định nghĩa kết nối MongoDB
 const connectDB = async () => {
@@ -53,9 +44,17 @@ const journalSchema = new mongoose.Schema({
   Categories: String,
   Areas: String
 });
-
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
+const express = require('express');
+const compression = require('compression');
+const app = express();
+
+app.use(compression()); // Nén phản hồi
+app.use(express.json());
+
+// Bỏ qua yêu cầu favicon
+app.get('/favicon.png', (req, res) => res.status(204).end());
 
 app.get('/api/journals', async (req, res) => {
   try {
@@ -135,12 +134,16 @@ app.delete('/api/journals/:id', async (req, res) => {
 // SEARCH journals by title
 app.get('/api/journals/search', async (req, res) => {
   try {
+    await connectDB(); // ⬅ đảm bảo kết nối xong
+
     const { q } = req.query; // Tham số tìm kiếm (ví dụ: q=CA)
     const query = q ? { Title: { $regex: q, $options: 'i' } } : {};
-    const journals = await Journal.find(query); 
+
+    const journals = await Journal.find(query);
     res.json(journals);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Lỗi tìm kiếm:', err);
+    res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: err.message });
   }
 });
 
