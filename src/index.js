@@ -1,13 +1,17 @@
+const express = require('express');
 const mongoose = require('mongoose');
+const compression = require('compression');
+const app = express();
 
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: false, // Ngăn buffering khi không kết nối
-      serverSelectionTimeoutMS: 5000, // Giảm thời gian chờ
-      heartbeatFrequencyMS: 1000, // Tăng tần suất kiểm tra
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+      heartbeatFrequencyMS: 1000,
+      maxPoolSize: 20, // Tăng số kết nối đồng thời
     });
     console.log('Connected to MongoDB');
   } catch (err) {
@@ -46,8 +50,7 @@ const journalSchema = new mongoose.Schema({
 
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-const express = require('express');
-const app = express();
+app.use(compression()); // Nén phản hồi
 app.use(express.json());
 
 app.get('/api/journals', async (req, res) => {
