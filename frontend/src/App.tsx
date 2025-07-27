@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Container, Row, Col, Card, Spinner } from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const App: React.FC = () => {
   const [journals, setJournals] = useState<any[]>([]);
@@ -10,7 +11,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('https://research-api-two.vercel.app/api/journals');
+        const response = await axios.get('/api/journals');
         setJournals(response.data);
         setLoading(false);
       } catch (err) {
