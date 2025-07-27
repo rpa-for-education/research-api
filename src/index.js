@@ -128,5 +128,17 @@ app.delete('/api/journals/:id', async (req, res) => {
   }
 });
 
+// SEARCH journals by title
+app.get('/api/journals/search', async (req, res) => {
+  try {
+    const { q } = req.query; // Tham số tìm kiếm (ví dụ: q=CA)
+    const query = q ? { Title: { $regex: q, $options: 'i' } } : {};
+    const journals = await Journal.find(query); 
+    res.json(journals);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
