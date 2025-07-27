@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 
 // Định nghĩa kết nối MongoDB
 const connectDB = async () => {
+  if (isConnected || mongoose.connection.readyState >= 1) {
+    return; // tránh gọi lại nếu đã kết nối
+  }
+
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
@@ -11,9 +15,11 @@ const connectDB = async () => {
       heartbeatFrequencyMS: 1000,
       maxPoolSize: 20, // Tăng số kết nối đồng thời
     });
+    isConnected = true;
     console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
+    process.exit(1); // Thoát nếu kết nối thất bại
   }
 };
 connectDB().catch(console.error);
@@ -134,9 +140,7 @@ app.delete('/api/journals/:id', async (req, res) => {
 // SEARCH journals by title
 app.get('/api/journals/search', async (req, res) => {
   try {
-    await connectDB(); // ⬅ đảm bảo kết nối xong
-
-    const { q } = req.query; // Tham số tìm kiếm (ví dụ: q=CA)
+    const { q } = req.query;
     const query = q ? { Title: { $regex: q, $options: 'i' } } : {};
 
     const journals = await Journal.find(query);
@@ -148,4 +152,10 @@ app.get('/api/journals/search', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}).catch((err) => {
+  console.error('❌ Server start aborted due to DB error');
+});
