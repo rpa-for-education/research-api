@@ -7,7 +7,6 @@ const app = express();
 app.use(compression());
 app.use(express.json());
 
-// Singleton connection function with connection pooling
 let cachedDb = null;
 
 const connectDB = async () => {
@@ -16,16 +15,17 @@ const connectDB = async () => {
   }
 
   try {
+    console.log('Attempting to connect to MongoDB with URI:', process.env.MONGODB_URI); // Debug
     const db = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: true, // Cho phép buffering để xử lý cold start
+      bufferCommands: true, // Quan trọng: Bật buffering
       serverSelectionTimeoutMS: 5000,
       heartbeatFrequencyMS: 1000,
       maxPoolSize: 20,
     });
     cachedDb = db;
-    console.log('Connected to MongoDB');
+    console.log('Successfully connected to MongoDB');
     return db;
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
@@ -33,7 +33,6 @@ const connectDB = async () => {
   }
 };
 
-// Định nghĩa schema và model
 const journalSchema = new mongoose.Schema({
   Rank: Number,
   Sourceid: String,
@@ -60,53 +59,30 @@ const journalSchema = new mongoose.Schema({
 });
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-// Middleware đảm bảo kết nối trước mỗi request
 app.use(async (req, res, next) => {
   try {
     await connectDB();
     next();
   } catch (err) {
+    console.error('Middleware error:', err.message); // Debug
     res.status(503).json({ message: 'Service unavailable: Database connection failed' });
   }
 });
 
-// GET journals
 app.get('/api/journals', async (req, res) => {
   try {
-    const journals = await Journal.find().select('_id Title Rank Country H_index'); // Giới hạn trường để tăng tốc
+    console.log('Fetching journals...'); // Debug
+    const journals = await Journal.find().select('_id Title Rank Country H_index');
     res.json(journals);
   } catch (err) {
+    console.error('Fetch error:', err.message); // Debug
     res.status(500).json({ message: err.message });
   }
 });
 
-// POST a new journal
 app.post('/api/journals', async (req, res) => {
   try {
-    const journal = new Journal({
-      Rank: req.body.Rank,
-      Sourceid: req.body.Sourceid,
-      Title: req.body.Title,
-      Type: req.body.Type,
-      Issn: req.body.Issn,
-      SJR: req.body.SJR,
-      H_index: req.body.H_index,
-      Total_Docs: req.body.Total_Docs,
-      Total_Refs: req.body.Total_Refs,
-      Total_Citations: req.body.Total_Citations,
-      Citable_Docs: req.body.Citable_Docs,
-      Citations_per_Doc: req.body.Citations_per_Doc,
-      Ref: req.body.Ref,
-      Female: req.body.Female,
-      Overton: req.body.Overton,
-      SDG: req.body.SDG,
-      Country: req.body.Country,
-      Region: req.body.Region,
-      Publisher: req.body.Publisher,
-      Coverage: req.body.Coverage,
-      Categories: req.body.Categories,
-      Areas: req.body.Areas
-    });
+    const journal = new Journal(req.body);
     const newJournal = await journal.save();
     res.status(201).json(newJournal);
   } catch (err) {
@@ -114,7 +90,6 @@ app.post('/api/journals', async (req, res) => {
   }
 });
 
-// PUT update a journal
 app.put('/api/journals/:id', async (req, res) => {
   try {
     const journal = await Journal.findById(req.params.id);
@@ -130,7 +105,6 @@ app.put('/api/journals/:id', async (req, res) => {
   }
 });
 
-// DELETE a journal
 app.delete('/api/journals/:id', async (req, res) => {
   try {
     const journal = await Journal.findById(req.params.id);
@@ -145,5 +119,4 @@ app.delete('/api/journals/:id', async (req, res) => {
   }
 });
 
-// Xuất app cho Vercel
 module.exports = app;
