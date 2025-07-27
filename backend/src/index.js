@@ -15,11 +15,11 @@ const connectDB = async () => {
   }
 
   try {
-    console.log('Attempting to connect to MongoDB with URI:', process.env.MONGODB_URI); // Debug
+    console.log('Attempting to connect to MongoDB with URI:', process.env.MONGODB_URI.substring(0, 10) + '...'); // Debug, ẩn thông tin nhạy cảm
     const db = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: true, // Quan trọng: Bật buffering
+      bufferCommands: true, // Quan trọng: Bật buffering để tránh lỗi cold start
       serverSelectionTimeoutMS: 5000,
       heartbeatFrequencyMS: 1000,
       maxPoolSize: 20,
@@ -64,18 +64,18 @@ app.use(async (req, res, next) => {
     await connectDB();
     next();
   } catch (err) {
-    console.error('Middleware error:', err.message); // Debug
+    console.error('Middleware error:', err.message);
     res.status(503).json({ message: 'Service unavailable: Database connection failed' });
   }
 });
 
 app.get('/api/journals', async (req, res) => {
   try {
-    console.log('Fetching journals...'); // Debug
+    console.log('Fetching journals...');
     const journals = await Journal.find().select('_id Title Rank Country H_index');
     res.json(journals);
   } catch (err) {
-    console.error('Fetch error:', err.message); // Debug
+    console.error('Fetch error:', err.message);
     res.status(500).json({ message: err.message });
   }
 });
