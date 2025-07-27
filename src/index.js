@@ -3,6 +3,13 @@ const mongoose = require('mongoose');
 const compression = require('compression');
 const app = express();
 
+app.use(compression()); // Nén phản hồi
+app.use(express.json());
+
+// Bỏ qua yêu cầu favicon
+app.get('/favicon.png', (req, res) => res.status(204).end());
+
+// Định nghĩa kết nối MongoDB
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
@@ -18,7 +25,6 @@ const connectDB = async () => {
     console.error('MongoDB connection error:', err.message);
   }
 };
-
 connectDB().catch(console.error);
 
 // Định nghĩa schema và model
@@ -50,8 +56,6 @@ const journalSchema = new mongoose.Schema({
 
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-app.use(compression()); // Nén phản hồi
-app.use(express.json());
 
 app.get('/api/journals', async (req, res) => {
   try {
