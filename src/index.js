@@ -76,7 +76,6 @@ app.get('/api/journals', async (req, res) => {
 // POST a new journal
 app.post('/api/journals', async (req, res) => {
   const journal = new Journal({
-    _id: req.body._id,
     Rank: req.body.Rank,
     Sourceid: req.body.Sourceid,
     Title: req.body.Title,
