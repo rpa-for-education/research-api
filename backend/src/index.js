@@ -11,17 +11,18 @@ let cachedDb = null;
 
 const connectDB = async () => {
   if (cachedDb && cachedDb.readyState === 1) {
+    console.log('Reusing existing MongoDB connection');
     return cachedDb;
   }
 
   try {
-    console.log('Attempting to connect to MongoDB with URI:', process.env.MONGODB_URI.substring(0, 10) + '...'); // Debug, ẩn thông tin nhạy cảm
+    console.log('Attempting to connect to MongoDB with URI:', process.env.MONGODB_URI.substring(0, 10) + '...');
     const db = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: true, // Quan trọng: Bật buffering để tránh lỗi cold start
-      serverSelectionTimeoutMS: 5000,
-      heartbeatFrequencyMS: 1000,
+      bufferCommands: true, // Bật buffering để xử lý cold start
+      serverSelectionTimeoutMS: 10000, // Tăng timeout để tránh lỗi kết nối
+      heartbeatFrequencyMS: 10000,
       maxPoolSize: 20,
     });
     cachedDb = db;
@@ -72,7 +73,7 @@ app.use(async (req, res, next) => {
 app.get('/api/journals', async (req, res) => {
   try {
     console.log('Fetching journals...');
-    const journals = await Journal.find().select('_id Title Rank Country H_index');
+    const journals = await Journal.find().select('_id Title Rank Country H_index').limit(100); // Giới hạn để tránh tải quá nhiều
     res.json(journals);
   } catch (err) {
     console.error('Fetch error:', err.message);
