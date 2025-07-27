@@ -1,0 +1,129 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const app = express();
+app.use(express.json());
+
+const uri = "mongodb+srv://huycv:HuyCV20252026@neu.4vsa9sc.mongodb.net/neu?retryWrites=true&w=majority";
+mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
+const journalSchema = new mongoose.Schema({
+  _id: String,
+  Rank: Number,
+  Sourceid: String,
+  Title: String,
+  Type: String,
+  Issn: String,
+  SJR: String,
+  H_index: Number,
+  Total_Docs: Object,
+  Total_Refs: Object,
+  Total_Citations: Object,
+  Citable_Docs: Object,
+  Citations_per_Doc: Object,
+  Ref: Object,
+  Female: String,
+  Overton: Number,
+  SDG: Number,
+  Country: String,
+  Region: String,
+  Publisher: String,
+  Coverage: String,
+  Categories: String,
+  Areas: String
+});
+
+const Journal = mongoose.model('Journal', journalSchema, 'journal');
+
+// GET all journals
+app.get('/api/journals', async (req, res) => {
+  try {
+    const journals = await Journal.find();
+    console.log('Số lượng bản ghi:', journals.length);
+    res.json(journals);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET a single journal by ID
+app.get('/api/journals/:id', async (req, res) => {
+  try {
+    const journal = await Journal.findById(req.params.id);
+    if (journal) {
+      res.json(journal);
+    } else {
+      res.status(404).json({ message: 'Journal not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST a new journal
+app.post('/api/journals', async (req, res) => {
+  const journal = new Journal({
+    _id: req.body._id,
+    Rank: req.body.Rank,
+    Sourceid: req.body.Sourceid,
+    Title: req.body.Title,
+    Type: req.body.Type,
+    Issn: req.body.Issn,
+    SJR: req.body.SJR,
+    H_index: req.body.H_index,
+    Total_Docs: req.body.Total_Docs,
+    Total_Refs: req.body.Total_Refs,
+    Total_Citations: req.body.Total_Citations,
+    Citable_Docs: req.body.Citable_Docs,
+    Citations_per_Doc: req.body.Citations_per_Doc,
+    Ref: req.body.Ref,
+    Female: req.body.Female,
+    Overton: req.body.Overton,
+    SDG: req.body.SDG,
+    Country: req.body.Country,
+    Region: req.body.Region,
+    Publisher: req.body.Publisher,
+    Coverage: req.body.Coverage,
+    Categories: req.body.Categories,
+    Areas: req.body.Areas
+  });
+  try {
+    const newJournal = await journal.save();
+    res.status(201).json(newJournal);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// PUT update a journal
+app.put('/api/journals/:id', async (req, res) => {
+  try {
+    const journal = await Journal.findById(req.params.id);
+    if (journal) {
+      Object.assign(journal, req.body);
+      const updatedJournal = await journal.save();
+      res.json(updatedJournal);
+    } else {
+      res.status(404).json({ message: 'Journal not found' });
+    }
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// DELETE a journal
+app.delete('/api/journals/:id', async (req, res) => {
+  try {
+    const journal = await Journal.findById(req.params.id);
+    if (journal) {
+      await journal.remove();
+      res.json({ message: 'Journal deleted' });
+    } else {
+      res.status(404).json({ message: 'Journal not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
