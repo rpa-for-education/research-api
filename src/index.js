@@ -1,14 +1,13 @@
 const mongoose = require('mongoose');
 const express = require('express');
 const compression = require('compression');
-let isConnected = false;
 
 const app = express();
 
 app.use(compression());
 app.use(express.json());
 
-// Định nghĩa schema và model
+// Định nghĩa schema và model (không cần kết nối trước)
 const journalSchema = new mongoose.Schema({
   Rank: Number,
   Sourceid: String,
@@ -35,37 +34,34 @@ const journalSchema = new mongoose.Schema({
 });
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-// Định nghĩa kết nối MongoDB
+// Hàm kết nối MongoDB
 const connectDB = async () => {
-  if (isConnected || mongoose.connection.readyState >= 1) {
-    return; // Tránh gọi lại nếu đã kết nối
-  }
-
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: false,
+      bufferCommands: false, // Vẫn giữ false nhưng xử lý đồng bộ
       serverSelectionTimeoutMS: 5000,
       heartbeatFrequencyMS: 1000,
       maxPoolSize: 20,
     });
-    isConnected = true;
     console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
-    throw err; // Ném lỗi để xử lý ở cấp cao hơn
+    throw err;
   }
 };
 
-// Middleware kiểm tra kết nối trước khi xử lý request
+// Middleware kiểm tra và kết nối trước mỗi request
 app.use(async (req, res, next) => {
-  if (!isConnected) {
+  if (mongoose.connection.readyState === 0) { // Chưa kết nối
     try {
       await connectDB();
     } catch (err) {
-      return res.status(500).json({ message: 'Database connection failed' });
+      return res.status(503).json({ message: 'Service unavailable: Database connection failed' });
     }
+  } else if (mongoose.connection.readyState === 2 || mongoose.connection.readyState === 3) { // Kết nối đang kết nối lại
+    return res.status(503).json({ message: 'Service unavailable: Database reconnecting' });
   }
   next();
 });
@@ -145,18 +141,5 @@ app.delete('/api/journals/:id', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-
-// Khởi động server sau khi kết nối
-const startServer = async () => {
-  try {
-    await connectDB();
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('❌ Server start aborted due to DB error:', err.message);
-  }
-};
-
-startServer();
+// Trong Vercel, không cần app.listen vì serverless tự xử lý
+module.exports = app; // Xuất app để Vercel sử dụng
