@@ -62,16 +62,7 @@ app.use(express.json());
 
 // Bỏ qua yêu cầu favicon
 app.get('/favicon.png', (req, res) => res.status(204).end());
-
-// Tất cả các route phải đảm bảo connectDB đã gọi
-const withDB = (handler) => async (req, res) => {
-  try {
-    await connectDB(); // ⬅ đảm bảo trước mỗi route
-    await handler(req, res);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // GET journals
 app.get('/api/journals', async (req, res) => {
@@ -148,14 +139,6 @@ app.delete('/api/journals/:id', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-// SEARCH journals by title
-app.get('/api/journals/search', withDB(async (req, res) => {
-  const { q } = req.query;
-  const query = q ? { Title: { $regex: q, $options: 'i' } } : {};
-  const journals = await Journal.find(query);
-  res.json(journals);
-}));
 
 const PORT = process.env.PORT || 3000;
 connectDB().then(() => {
