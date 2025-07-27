@@ -1,11 +1,23 @@
-const express = require('express');
 const mongoose = require('mongoose');
-const app = express();
-app.use(express.json());
 
-const uri = "mongodb+srv://huycv:HuyCV20252026@neu.4vsa9sc.mongodb.net/neu?retryWrites=true&w=majority";
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      bufferCommands: false, // Ngăn buffering khi không kết nối
+      serverSelectionTimeoutMS: 5000, // Giảm thời gian chờ
+      heartbeatFrequencyMS: 1000, // Tăng tần suất kiểm tra
+    });
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err.message);
+  }
+};
 
+connectDB().catch(console.error);
+
+// Định nghĩa schema và model
 const journalSchema = new mongoose.Schema({
   _id: String,
   Rank: Number,
@@ -34,26 +46,14 @@ const journalSchema = new mongoose.Schema({
 
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-// GET all journals
+const express = require('express');
+const app = express();
+app.use(express.json());
+
 app.get('/api/journals', async (req, res) => {
   try {
-    const journals = await Journal.find();
-    console.log('Số lượng bản ghi:', journals.length);
+    const journals = await Journal.find().limit(100);
     res.json(journals);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// GET a single journal by ID
-app.get('/api/journals/:id', async (req, res) => {
-  try {
-    const journal = await Journal.findById(req.params.id);
-    if (journal) {
-      res.json(journal);
-    } else {
-      res.status(404).json({ message: 'Journal not found' });
-    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
