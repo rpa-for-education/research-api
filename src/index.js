@@ -7,23 +7,26 @@ const app = express();
 app.use(compression());
 app.use(express.json());
 
-// Singleton connection function
+// Singleton connection function with connection pooling
+let cachedDb = null;
+
 const connectDB = async () => {
-  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
-    return mongoose.connection;
+  if (cachedDb && cachedDb.readyState === 1) {
+    return cachedDb;
   }
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
+    const db = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: true, // Bật lại bufferCommands để xử lý cold start
+      bufferCommands: true, // Cho phép buffering để xử lý cold start
       serverSelectionTimeoutMS: 5000,
       heartbeatFrequencyMS: 1000,
       maxPoolSize: 20,
     });
+    cachedDb = db;
     console.log('Connected to MongoDB');
-    return mongoose.connection;
+    return db;
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
     throw err;
@@ -57,7 +60,7 @@ const journalSchema = new mongoose.Schema({
 });
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-// Middleware kiểm tra và kết nối
+// Middleware đảm bảo kết nối trước mỗi request
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -70,7 +73,7 @@ app.use(async (req, res, next) => {
 // GET journals
 app.get('/api/journals', async (req, res) => {
   try {
-    const journals = await Journal.find();
+    const journals = await Journal.find().select('_id Title Rank Country H_index'); // Giới hạn trường để tăng tốc
     res.json(journals);
   } catch (err) {
     res.status(500).json({ message: err.message });
