@@ -56,17 +56,13 @@ const express = require('express');
 const compression = require('compression');
 const app = express();
 
-app.use(compression()); // Nén phản hồi
+app.use(compression());
 app.use(express.json());
-
-// Bỏ qua yêu cầu favicon
-app.get('/favicon.png', (req, res) => res.status(204).end());
-app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // GET journals
 app.get('/api/journals', async (req, res) => {
   try {
-    const journals = await Journal.find().limit(100);
+    const journals = await Journal.find();
     res.json(journals);
   } catch (err) {
     res.status(500).json({ message: err.message });
