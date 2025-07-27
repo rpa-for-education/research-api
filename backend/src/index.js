@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+mongoose.set('strictQuery', true); // Hoặc false, tùy bạn
+
 const express = require('express');
 const compression = require('compression');
 
@@ -20,8 +22,8 @@ const connectDB = async () => {
     const db = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      bufferCommands: true, // Bật buffering để xử lý cold start
-      serverSelectionTimeoutMS: 10000, // Tăng timeout để tránh lỗi kết nối
+      bufferCommands: true,
+      serverSelectionTimeoutMS: 10000,
       heartbeatFrequencyMS: 10000,
       maxPoolSize: 20,
     });
@@ -73,7 +75,7 @@ app.use(async (req, res, next) => {
 app.get('/api/journals', async (req, res) => {
   try {
     console.log('Fetching journals...');
-    const journals = await Journal.find().select('_id Title Rank Country H_index').limit(100); // Giới hạn để tránh tải quá nhiều
+    const journals = await Journal.find().select('_id Title Rank Country H_index').limit(100);
     res.json(journals);
   } catch (err) {
     console.error('Fetch error:', err.message);
