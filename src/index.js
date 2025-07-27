@@ -7,26 +7,30 @@ const app = express();
 app.use(compression());
 app.use(express.json());
 
-// Hàm kết nối MongoDB
+// Singleton connection function
 const connectDB = async () => {
+  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
+    return mongoose.connection;
+  }
+
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      // Tạm thời giữ bufferCommands: false, nhưng sẽ xử lý đồng bộ
-      bufferCommands: false,
+      bufferCommands: true, // Bật lại bufferCommands để xử lý cold start
       serverSelectionTimeoutMS: 5000,
       heartbeatFrequencyMS: 1000,
       maxPoolSize: 20,
     });
     console.log('Connected to MongoDB');
+    return mongoose.connection;
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
     throw err;
   }
 };
 
-// Định nghĩa schema và model (không cần kết nối trước)
+// Định nghĩa schema và model
 const journalSchema = new mongoose.Schema({
   Rank: Number,
   Sourceid: String,
@@ -53,26 +57,20 @@ const journalSchema = new mongoose.Schema({
 });
 const Journal = mongoose.model('Journal', journalSchema, 'journal');
 
-// Hàm wrapper để đảm bảo kết nối trước khi thực thi
-const withDBConnection = async (callback) => {
+// Middleware kiểm tra và kết nối
+app.use(async (req, res, next) => {
   try {
-    if (mongoose.connection.readyState === 0) {
-      await connectDB();
-    } else if (mongoose.connection.readyState === 2 || mongoose.connection.readyState === 3) {
-      await new Promise((resolve) => {
-        mongoose.connection.on('connected', resolve);
-      });
-    }
-    return await callback();
+    await connectDB();
+    next();
   } catch (err) {
-    throw err;
+    res.status(503).json({ message: 'Service unavailable: Database connection failed' });
   }
-};
+});
 
 // GET journals
 app.get('/api/journals', async (req, res) => {
   try {
-    const journals = await withDBConnection(() => Journal.find());
+    const journals = await Journal.find();
     res.json(journals);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -82,33 +80,32 @@ app.get('/api/journals', async (req, res) => {
 // POST a new journal
 app.post('/api/journals', async (req, res) => {
   try {
-    const journal = await withDBConnection(() =>
-      new Journal({
-        Rank: req.body.Rank,
-        Sourceid: req.body.Sourceid,
-        Title: req.body.Title,
-        Type: req.body.Type,
-        Issn: req.body.Issn,
-        SJR: req.body.SJR,
-        H_index: req.body.H_index,
-        Total_Docs: req.body.Total_Docs,
-        Total_Refs: req.body.Total_Refs,
-        Total_Citations: req.body.Total_Citations,
-        Citable_Docs: req.body.Citable_Docs,
-        Citations_per_Doc: req.body.Citations_per_Doc,
-        Ref: req.body.Ref,
-        Female: req.body.Female,
-        Overton: req.body.Overton,
-        SDG: req.body.SDG,
-        Country: req.body.Country,
-        Region: req.body.Region,
-        Publisher: req.body.Publisher,
-        Coverage: req.body.Coverage,
-        Categories: req.body.Categories,
-        Areas: req.body.Areas
-      }).save()
-    );
-    res.status(201).json(journal);
+    const journal = new Journal({
+      Rank: req.body.Rank,
+      Sourceid: req.body.Sourceid,
+      Title: req.body.Title,
+      Type: req.body.Type,
+      Issn: req.body.Issn,
+      SJR: req.body.SJR,
+      H_index: req.body.H_index,
+      Total_Docs: req.body.Total_Docs,
+      Total_Refs: req.body.Total_Refs,
+      Total_Citations: req.body.Total_Citations,
+      Citable_Docs: req.body.Citable_Docs,
+      Citations_per_Doc: req.body.Citations_per_Doc,
+      Ref: req.body.Ref,
+      Female: req.body.Female,
+      Overton: req.body.Overton,
+      SDG: req.body.SDG,
+      Country: req.body.Country,
+      Region: req.body.Region,
+      Publisher: req.body.Publisher,
+      Coverage: req.body.Coverage,
+      Categories: req.body.Categories,
+      Areas: req.body.Areas
+    });
+    const newJournal = await journal.save();
+    res.status(201).json(newJournal);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -117,17 +114,11 @@ app.post('/api/journals', async (req, res) => {
 // PUT update a journal
 app.put('/api/journals/:id', async (req, res) => {
   try {
-    const journal = await withDBConnection(async () => {
-      const doc = await Journal.findById(req.params.id);
-      if (doc) {
-        Object.assign(doc, req.body);
-        return await doc.save();
-      } else {
-        return null;
-      }
-    });
+    const journal = await Journal.findById(req.params.id);
     if (journal) {
-      res.json(journal);
+      Object.assign(journal, req.body);
+      const updatedJournal = await journal.save();
+      res.json(updatedJournal);
     } else {
       res.status(404).json({ message: 'Journal not found' });
     }
@@ -139,17 +130,10 @@ app.put('/api/journals/:id', async (req, res) => {
 // DELETE a journal
 app.delete('/api/journals/:id', async (req, res) => {
   try {
-    const journal = await withDBConnection(async () => {
-      const doc = await Journal.findById(req.params.id);
-      if (doc) {
-        await doc.remove();
-        return { message: 'Journal deleted' };
-      } else {
-        return null;
-      }
-    });
+    const journal = await Journal.findById(req.params.id);
     if (journal) {
-      res.json(journal);
+      await journal.remove();
+      res.json({ message: 'Journal deleted' });
     } else {
       res.status(404).json({ message: 'Journal not found' });
     }
